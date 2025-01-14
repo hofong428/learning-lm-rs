@@ -71,26 +71,76 @@ pub fn masked_softmax(y: &mut Tensor<f32>) {
 }
 
 pub fn rms_norm(y: &mut Tensor<f32>, x: &Tensor<f32>, w: &Tensor<f32>, epsilon: f32) {
-    todo!("实现 rms_norm，计算前做一些必要的检查会帮助你后续调试")
+    // 确保张量形状一致
+    assert!(x.size() == y.size(), "x and y must have the same size");
+
+    let x_data = x.data();
+    let w_data = w.data();
+    let y_data = unsafe { y.data_mut() };
+
+    let rows = x.shape()[0]; // 行数
+    let cols = x.shape()[1]; // 列数
+
+    // 逐行计算
+    for row in 0..rows {
+        // 计算当前行的平方和
+        let mut sum_of_squares = 0.0;
+        for col in 0..cols {
+            sum_of_squares += x_data[row * cols + col].powi(2);
+        }
+
+        // 计算 RMS
+        let rms = (sum_of_squares / cols as f32 + epsilon).sqrt();
+
+        // 使用权重和 RMS 更新 y
+        for col in 0..cols {
+            y_data[row * cols + col] = (x_data[row * cols + col] / rms) * w_data[col];
+        }
+    }
 }
+
+
+
 
 // y = silu(x) * y
 // hint: this is an element-wise operation
 pub fn swiglu(y: &mut Tensor<f32>, x: &Tensor<f32>) {
-    // let len = y.size();
-    // assert!(len == x.size());
+    assert!(y.size() == x.size());
 
-    // let _y = unsafe { y.data_mut() };
-    // let _x = x.data();
+    let y_size = y.size(); // 提取大小，避免重复不可变借用
+    let x_data = x.data();
+    let y_data = unsafe { y.data_mut() };
 
-    todo!("实现 silu，这里给了一些前期准备工作的提示，你可以参考")
+    for i in 0..y_size {
+        let sigmoid = 1.0 / (1.0 + (-x_data[i]).exp());
+        let silu = x_data[i] * sigmoid;
+        y_data[i] *= silu;
+    }
 }
+
 
 // C = beta * C + alpha * A @ B^T
 // hint: You don't need to do an explicit transpose of B
 pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor<f32>, alpha: f32) {
-    todo!("实现 matmul_transb，计算前做一些必要的检查会帮助你后续调试");
+    let (m, k) = (a.shape()[0], a.shape()[1]);
+    let (n, k_b) = (b.shape()[0], b.shape()[1]);
+    assert!(k == k_b && c.shape() == &[m, n]);
+
+    let a_data = a.data();
+    let b_data = b.data();
+    let c_data = unsafe { c.data_mut() };
+
+    for i in 0..m {
+        for j in 0..n {
+            let mut sum = 0.0;
+            for p in 0..k {
+                sum += a_data[i * k + p] * b_data[j * k + p]; // 使用 B 的转置索引
+            }
+            c_data[i * n + j] = beta * c_data[i * n + j] + alpha * sum;
+        }
+    }
 }
+
 
 // Dot product of two tensors (treated as vectors)
 #[allow(unused)]
@@ -104,6 +154,46 @@ pub fn dot(x: &Tensor<f32>, y: &Tensor<f32>) -> f32 {
         sum += x_[i] * y_[i];
     }
     sum
+}
+/// 矩阵乘法（Transpose B）
+/// C = α * A * B^T + β * C
+/// 参数:
+/// - `c`: 输出矩阵 C，形状为 (m, n)
+/// - `a`: 输入矩阵 A，形状为 (m, k)
+/// - `b`: 输入矩阵 B，形状为 (n, k)
+/// - `alpha`: 缩放因子 α
+/// - `beta`: 缩放因子 β
+pub fn matmul_transpose_b(
+    c: &mut Tensor<f32>,
+    a: &Tensor<f32>,
+    b: &Tensor<f32>,
+    alpha: f32,
+    beta: f32,
+) {
+    // 检查矩阵形状是否匹配
+    let (m, k_a) = (a.shape()[0], a.shape()[1]);
+    let (n, k_b) = (b.shape()[0], b.shape()[1]);
+    let (m_c, n_c) = (c.shape()[0], c.shape()[1]);
+
+    assert!(k_a == k_b, "A 和 B 的列数必须相等");
+    assert!(m == m_c && n == n_c, "C 的形状必须为 (m, n)");
+
+    let a_data = a.data();
+    let b_data = b.data();
+    let c_data = unsafe { c.data_mut() };
+
+    // 逐元素计算 C = α * A * B^T + β * C
+    for i in 0..m {
+        for j in 0..n {
+            // 计算 A[i, :] 和 B[j, :] 的点积（因为 B 已转置）
+            let mut sum = 0.0;
+            for p in 0..k_a {
+                sum += a_data[i * k_a + p] * b_data[j * k_b + p];
+            }
+            // 更新 C[i, j]
+            c_data[i * n + j] = alpha * sum + beta * c_data[i * n + j];
+        }
+    }
 }
 
 // Sample a index from a tensor (treated as a probability vector)
