@@ -22,9 +22,9 @@ pub struct LLamaParams<T> {
 
 impl LLamaParams<f32> {
     pub fn from_safetensors(safetensor: &SafeTensors, config: &LlamaConfigJson) -> Self {
-        // 辅助函数：从 safetensors 中提取张量
+        // 辅助函数：从 safetensors 中提取张釄1�7
         let extract_tensor = |name: &str| -> Tensor<f32> {
-            let tensor = safetensor.tensor(name).expect("张量不存在");
+            let tensor = safetensor.tensor(name).expect("张量不存圄1�7");
             let shape = tensor.shape().to_vec();
             let data: Vec<f32> = tensor
                 .data()
@@ -46,7 +46,7 @@ impl LLamaParams<f32> {
         let mut w_gate = Vec::with_capacity(n_layers);
         let mut w_down = Vec::with_capacity(n_layers);
 
-        // 加载每层的必要参数
+        // 加载每层的必要参敄1�7
         for i in 0..n_layers {
             rms_att_w.push(extract_tensor(&format!(
                 "model.layers.{i}.input_layernorm.weight"
@@ -75,7 +75,7 @@ impl LLamaParams<f32> {
             )));
         }
 
-        // 返回 LLamaParams 结构体实例
+        // 返回 LLamaParams 结构体实侄1�7
         LLamaParams {
             embedding_table: extract_tensor(if config.tie_word_embeddings {
                 "lm_head.weight"
