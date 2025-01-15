@@ -132,11 +132,11 @@ impl Llama<f32> {
         top_p: f32,
         top_k: u32,
         temperature: f32,
-    ) -> Vec<u32>{
+    ) -> Vec<u32> {
         let mut result = Vec::<u32>::new();
-        
+
         todo!("实现文本生成");
-        
+
         result
     }
 }
@@ -156,7 +156,7 @@ fn self_attention(
     todo!("Implement self_attention");
 }
 
-fn mlp(
+pub fn mlp(
     residual: &mut Tensor<f32>,
     hidden_states: &mut Tensor<f32>,
     gate: &mut Tensor<f32>,
@@ -167,8 +167,24 @@ fn mlp(
     rms_w: &Tensor<f32>,
     eps: f32,
 ) {
-    todo!("Implement mlp");
+    // todo!("Implement mlp");
+    OP::rms_norm(hidden_states,residual,rms_w,eps); 
+    OP::matmul_transb(gate,0.0,hidden_states,w_gate,1.0);
+    OP::matmul_transb(up,0.0,hidden_states,w_up,1.0);
+    OP::swiglu(up,gate);
+    OP::matmul_transb(residual,1.0,up,w_down,1.0);
 }
+
+
+// hidden = rms_norm(residual)
+// gate = hidden @ gate_weight.T
+// up = hidden @ up_weight.T
+// act = gate * sigmoid(gate) * up ## SwiGLU
+// output = act @ down_weight.T
+// residual = output + residual
+
+
+
 
 #[test]
 pub fn test_mlp() {
